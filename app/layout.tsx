@@ -1,6 +1,6 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import Sidebar from './components/Sidebar';
+import Sidebar from './Sidebar';
 
 export const metadata: Metadata = {
   title: 'SignalScope — Journal de trading',
