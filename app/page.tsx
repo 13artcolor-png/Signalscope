@@ -220,12 +220,14 @@ export default function Home() {
                 >
                   {t.side}
                 </span>
+
                 <div className="w-24 font-medium">{t.symbol}</div>
+
                 <div className="text-sm text-neutral-600">
                   E: {t.entry_price ?? '-'} / S: {t.exit_price ?? '-'}
                 </div>
 
-                {/* Badge PnL */}
+                {/* Badge PnL (vert/rouge) */}
                 <div
                   className={`ml-auto text-sm px-2 py-1 rounded-full ${
                     (t.pnl_eur ?? 0) >= 0
