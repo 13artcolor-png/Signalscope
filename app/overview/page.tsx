@@ -7,3 +7,13 @@ export default function Overview() {
   );
 }
 
+import TVWidget from './TVWidget';
+
+export default function Overview() {
+  return (
+    <div className="space-y-4">
+      <h1 className="text-2xl font-bold">Aperçu</h1>
+      <TVWidget />
+    </div>
+  );
+}
