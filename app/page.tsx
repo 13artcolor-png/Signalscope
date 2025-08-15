@@ -1,227 +1,241 @@
 'use client';
-export const dynamic = 'force-dynamic';
 
 import { useEffect, useState } from 'react';
-import { getSupabase } from '@/lib/supabaseClient';
+import { createClient } from '@supabase/supabase-js';
 
-type Side = 'long' | 'short';
+// --- Supabase côté client (clés publiques)
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+// ---------- Helpers anti-plantage ----------
+function asNumber(x: any): number | null {
+  if (x === null || x === undefined) return null;
+  if (typeof x === 'number') return Number.isFinite(x) ? x : null;
+  const s = String(x).trim().replace(',', '.');
+  if (s === '') return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+function fmtEuro(x: any): string {
+  const n = asNumber(x);
+  const v = n === null ? 0 : n;
+  return `${v.toFixed(2)} €`;
+}
+// -------------------------------------------
 
 type Trade = {
-  id: string; // uuid en base
+  id?: number;
   symbol: string;
-  side: Side;
+  side: 'long' | 'short';
   entry_price: number | null;
   exit_price: number | null;
+  volume?: number | null;
   pnl_eur: number | null;
   opened_at: string | null;
   closed_at: string | null;
-  notes: string | null;
+  notes?: string | null;
 };
 
-function StatsBar({ trades }: { trades: Trade[] }) {
-  // calcule le pnl à l’affichage si pnl_eur est null mais E/S présents
-  const calcPnl = (t: Trade) => {
-    if (t.pnl_eur !== null && t.pnl_eur !== undefined) return t.pnl_eur;
-    if (t.entry_price == null || t.exit_price == null) return 0;
-    return t.side === 'long'
-      ? (t.exit_price - t.entry_price)
-      : (t.entry_price - t.exit_price);
-  };
-
-  const pnls = trades.map(calcPnl);
-  const total = pnls.reduce((a, b) => a + b, 0);
-  const wins = pnls.filter(v => v > 0).length;
-  const count = trades.length || 1;
-  const winrate = (wins / count) * 100;
-  const avg = total / count;
-
-  return (
-    <div className="grid md:grid-cols-3 gap-3">
-      <div className={`card p-3 ${winrate >= 50 ? 'border-emerald-300' : 'border-rose-300'}`}>
-        <div className="text-xs text-neutral-500">Win rate</div>
-        <div className="text-xl font-bold">{winrate.toFixed(1)}%</div>
-      </div>
-      <div className={`card p-3 ${total >= 0 ? 'border-emerald-300' : 'border-rose-300'}`}>
-        <div className="text-xs text-neutral-500">PnL total</div>
-        <div className="text-xl font-bold">{total.toFixed(2)} €</div>
-      </div>
-      <div className={`card p-3 ${avg >= 0 ? 'border-emerald-300' : 'border-rose-300'}`}>
-        <div className="text-xs text-neutral-500">PnL moyen / trade</div>
-        <div className="text-xl font-bold">{avg.toFixed(2)} €</div>
-      </div>
-    </div>
-  );
-}
-
-export default function Home() {
-  const supabase = getSupabase();
-
+export default function Page() {
   // formulaire
-  const [symbol, setSymbol] = useState('EURUSD');
-  const [side, setSide] = useState<Side>('long');
-  const [entry, setEntry] = useState('');
-  const [exit, setExit] = useState('');
-  const [volume, setVolume] = useState('1');
-  const [notes, setNotes] = useState('');
-  const [msg, setMsg] = useState('');
+  const [symbol, setSymbol] = useState('');
+  const [side, setSide] = useState<'long' | 'short'>('long');
+  const [entry, setEntry] = useState<string>('');
+  const [exit, setExit] = useState<string>('');
+  const [volume, setVolume] = useState<string>('1');
+  const [notes, setNotes] = useState<string>('');
 
-  // liste & clôture
+  // données
   const [trades, setTrades] = useState<Trade[]>([]);
-  const [exitInputs, setExitInputs] = useState<Record<string, string>>({});
+  const [status, setStatus] = useState<string>('');
+
+  // stats
+  const total = (trades ?? [])
+    .map(t => asNumber(t.pnl_eur))
+    .filter((n): n is number => n !== null)
+    .reduce((a, b) => a + b, 0);
+  const wins = (trades ?? [])
+    .map(t => asNumber(t.pnl_eur))
+    .filter((n): n is number => n !== null && n > 0).length;
+  const counted = (trades ?? [])
+    .map(t => asNumber(t.pnl_eur))
+    .filter((n): n is number => n !== null).length;
+  const winRate = counted ? (wins / counted) * 100 : 0;
+  const avg = counted ? total / counted : 0;
 
   async function loadTrades() {
-    if (!supabase) return;
     const { data, error } = await supabase
       .from('trades')
-      .select('id,symbol,side,entry_price,exit_price,pnl_eur,opened_at,closed_at,notes')
+      .select('*')
       .order('opened_at', { ascending: false })
-      .limit(30);
-    if (!error) setTrades((data ?? []) as any);
+      .limit(100);
+    if (!error && data) setTrades(data as Trade[]);
   }
 
-  useEffect(() => { loadTrades(); /* eslint-disable-next-line */ }, []);
+  useEffect(() => {
+    loadTrades();
+  }, []);
 
-  async function saveTrade() {
-    if (!supabase) { setMsg('Variables manquantes sur Vercel.'); return; }
-    setMsg('Enregistrement…');
+  async function saveTrade(e: React.FormEvent) {
+    e.preventDefault();
+    setStatus('Enregistrement…');
 
-    const e = entry ? Number(entry) : null;
-    const x = exit ? Number(exit) : null;
-    const v = volume ? Number(volume) : 1;
+    const eNum = asNumber(entry);
+    const xNum = asNumber(exit);
+    const vNum = asNumber(volume) ?? 1;
 
-    // PnL simple (à adapter si besoin)
     let pnl: number | null = null;
-    if (e !== null && x !== null) {
-      pnl = side === 'long' ? (x - e) * v : (e - x) * v;
+    if (eNum !== null && xNum !== null) {
+      pnl = side === 'long' ? (xNum - eNum) * vNum : (eNum - xNum) * vNum;
     }
 
-    const { error } = await supabase.from('trades').insert({
-      symbol,
+    const row: Trade = {
+      symbol: symbol.trim() || 'EURUSD',
       side,
-      entry_price: e,
-      exit_price: x,
+      entry_price: eNum,
+      exit_price: xNum,
+      volume: vNum,
       pnl_eur: pnl,
-      notes,
-      opened_at: new Date().toISOString()
-    });
+      opened_at: new Date().toISOString(),
+      closed_at: xNum !== null ? new Date().toISOString() : null,
+      notes: notes || null,
+    };
 
-    setMsg(error ? '❌ ' + error.message : '✅ Trade enregistré');
-    if (!error) {
-      setEntry(''); setExit(''); setVolume('1'); setNotes('');
+    const { error } = await supabase.from('trades').insert(row);
+    if (error) {
+      setStatus('❌ Erreur: ' + error.message);
+    } else {
+      setStatus('✅ Trade enregistré');
+      setSymbol('');
+      setEntry('');
+      setExit('');
+      setVolume('1');
+      setNotes('');
       await loadTrades();
     }
   }
 
-  async function closeTrade(t: Trade) {
-    if (!supabase) return;
-    const raw = exitInputs[t.id] ?? '';
-    const x = raw ? Number(raw) : null;
-    if (x === null || isNaN(x)) { setMsg('⚠️ Indique un prix de sortie.'); return; }
-
-    const e = t.entry_price;
-    if (e == null) { setMsg('⚠️ Pas de prix d’entrée pour ce trade.'); return; }
-
-    const pnl = t.side === 'long' ? (x - e) : (e - x);
-
-    setMsg('Clôture en cours…');
-    const { error } = await supabase.from('trades')
-      .update({ exit_price: x, pnl_eur: pnl, closed_at: new Date().toISOString() })
-      .eq('id', t.id);
-
-    setMsg(error ? '❌ ' + error.message : '✅ Trade clôturé');
-    if (!error) {
-      // clear champ local et recharge
-      setExitInputs(prev => ({ ...prev, [t.id]: '' }));
-      await loadTrades();
-    }
+  async function closeTrade(id: number) {
+    // On ferme en mettant la date de clôture si ce n’est pas déjà fait
+    const { error } = await supabase
+      .from('trades')
+      .update({ closed_at: new Date().toISOString() })
+      .eq('id', id);
+    if (!error) loadTrades();
   }
-
-  // util affichage du PnL
-  const displayPnl = (t: Trade) => {
-    let pnl = t.pnl_eur;
-    if ((pnl === null || pnl === undefined) && t.entry_price != null && t.exit_price != null) {
-      pnl = t.side === 'long' ? (t.exit_price - t.entry_price) : (t.entry_price - t.exit_price);
-    }
-    // si toujours null → montrer 0.00 jusqu’à la sortie
-    if (pnl === null || pnl === undefined) pnl = 0;
-    return pnl;
-  };
 
   return (
-    <main className="mx-auto max-w-5xl p-6 space-y-8">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">SignalScope — Journal de trading</h1>
-        <a className="btn-outline" href="https://supabase.com/docs" target="_blank" rel="noreferrer">
-          Doc Supabase
-        </a>
-      </header>
+    <div className="max-w-6xl mx-auto space-y-6">
+      {/* Stats rapides */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="card p-4">
+          <div className="text-sm text-neutral-500">Win rate</div>
+          <div className="text-2xl font-semibold">{winRate.toFixed(1)}%</div>
+        </div>
+        <div className="card p-4">
+          <div className="text-sm text-neutral-500">PnL total</div>
+          <div className="text-2xl font-semibold">{fmtEuro(total)}</div>
+        </div>
+        <div className="card p-4">
+          <div className="text-sm text-neutral-500">PnL moyen / trade</div>
+          <div className="text-2xl font-semibold">{fmtEuro(avg)}</div>
+        </div>
+      </div>
 
-      <StatsBar trades={trades} />
-
-      {!supabase && (
-        <p className="text-rose-600">
-          Configurez <b>NEXT_PUBLIC_SUPABASE_URL</b> et <b>NEXT_PUBLIC_SUPABASE_ANON_KEY</b> sur Vercel, puis redeploy.
-        </p>
-      )}
-
-      <section className="grid md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Formulaire */}
-        <div className="card p-4 space-y-3">
-          <h2 className="font-semibold">Nouveau trade</h2>
+        <div className="card p-4">
+          <h2 className="font-semibold mb-3">Nouveau trade</h2>
+          <form onSubmit={saveTrade} className="space-y-3">
+            <div>
+              <div className="text-sm mb-1">Symbole</div>
+              <input
+                className="input"
+                value={symbol}
+                onChange={e => setSymbol(e.target.value)}
+                placeholder="EURUSD"
+              />
+            </div>
 
-          <label className="block">Symbole
-            <input className="w-full border rounded-lg p-2"
-              value={symbol} onChange={e => setSymbol(e.target.value)} />
-          </label>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <div className="text-sm mb-1">Sens</div>
+                <select
+                  className="input"
+                  value={side}
+                  onChange={e => setSide(e.target.value as 'long' | 'short')}
+                >
+                  <option value="long">long</option>
+                  <option value="short">short</option>
+                </select>
+              </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <label> Sens
-              <select className="w-full border rounded-lg p-2"
-                value={side} onChange={e => setSide(e.target.value as Side)}>
-                <option value="long">long 🟢</option>
-                <option value="short">short 🔴</option>
-              </select>
-            </label>
+              <div>
+                <div className="text-sm mb-1">Volume (opt.)</div>
+                <input
+                  className="input"
+                  value={volume}
+                  onChange={e => setVolume(e.target.value)}
+                  placeholder="1"
+                />
+              </div>
+            </div>
 
-            <label> Entrée (opt.)
-              <input className="w-full border rounded-lg p-2"
-                value={entry} onChange={e => setEntry(e.target.value)} />
-            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <div className="text-sm mb-1">Entrée (opt.)</div>
+                <input
+                  className="input"
+                  value={entry}
+                  onChange={e => setEntry(e.target.value)}
+                  placeholder="1.0850"
+                />
+              </div>
+              <div>
+                <div className="text-sm mb-1">Sortie (opt.)</div>
+                <input
+                  className="input"
+                  value={exit}
+                  onChange={e => setExit(e.target.value)}
+                  placeholder="1.0900"
+                />
+              </div>
+            </div>
 
-            <label> Sortie (opt.)
-              <input className="w-full border rounded-lg p-2"
-                value={exit} onChange={e => setExit(e.target.value)} />
-            </label>
+            <div>
+              <div className="text-sm mb-1">Notes</div>
+              <textarea
+                className="input min-h-[100px]"
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="Pourquoi j’ai pris ce trade ?"
+              />
+            </div>
 
-            <label> Volume (opt.)
-              <input className="w-full border rounded-lg p-2"
-                value={volume} onChange={e => setVolume(e.target.value)} />
-            </label>
-          </div>
-
-          <label className="block">Notes
-            <textarea className="w-full border rounded-lg p-2"
-              value={notes} onChange={e => setNotes(e.target.value)} />
-          </label>
-
-          <div className="flex gap-2">
-            <button className="btn" onClick={saveTrade}>Enregistrer</button>
-            <button className="btn-outline" onClick={() => {
-              setEntry(''); setExit(''); setVolume('1'); setNotes('');
-            }}>Annuler</button>
-          </div>
-
-          <div className="min-h-6 text-sm text-neutral-600">{msg}</div>
-          <p className="text-xs text-neutral-500">Astuce : crée la table <code>trades</code> dans Supabase.</p>
+            <button className="btn">Enregistrer</button>
+            <div className="text-xs text-neutral-500">{status}</div>
+          </form>
         </div>
 
-        {/* Derniers trades */}
+        {/* Liste des trades */}
         <div className="card p-4">
-          <h2 className="font-semibold mb-2">Derniers trades</h2>
+          <h2 className="font-semibold mb-3">Derniers trades</h2>
           <div className="divide-y">
-            {trades.map(t => {
-              const pnl = displayPnl(t);
-              const isPositive = pnl >= 0;
+            {trades.map((t) => {
+              // calc PnL si pas stocké
+              let pnl = t.pnl_eur;
+              if ((pnl === null || pnl === undefined) && t.entry_price != null && t.exit_price != null) {
+                const eNum = asNumber(t.entry_price);
+                const xNum = asNumber(t.exit_price);
+                if (eNum !== null && xNum !== null) {
+                  pnl = t.side === 'long' ? (xNum - eNum) : (eNum - xNum);
+                }
+              }
+              const pnlNum = asNumber(pnl) ?? 0;
+              const isPositive = pnlNum >= 0;
 
               return (
                 <div key={t.id} className="py-2 flex items-center gap-3">
@@ -237,30 +251,21 @@ export default function Home() {
                     E: {t.entry_price ?? '-'} / S: {t.exit_price ?? '-'}
                   </div>
 
-                  {/* Badge PnL */}
                   <div className={`ml-auto text-sm px-2 py-1 rounded-full ${
                     isPositive ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
                   }`}>
-                    {pnl.toFixed(2)} €
+                    {fmtEuro(pnlNum)}
                   </div>
 
-                  {/* statut / clôture */}
-                  {t.closed_at
-                    ? <div className="text-xs w-20 text-right">Clôturé</div>
-                    : (
-                      <div className="flex items-center gap-2 w-48 justify-end">
-                        <input
-                          className="w-24 border rounded-lg px-2 py-1 text-sm"
-                          placeholder="Sortie"
-                          value={exitInputs[t.id] ?? ''}
-                          onChange={e => setExitInputs(prev => ({ ...prev, [t.id]: e.target.value }))}
-                        />
-                        <button className="btn-outline text-sm" onClick={() => closeTrade(t)}>
-                          Clôturer
-                        </button>
-                      </div>
-                    )
-                  }
+                  <div className="text-xs w-16 text-right">
+                    {t.closed_at ? 'Clôturé' : 'Ouvert'}
+                  </div>
+
+                  {!t.closed_at && t.id && (
+                    <button onClick={() => closeTrade(t.id!)} className="btn btn-sm">
+                      Clôturer
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -270,7 +275,7 @@ export default function Home() {
             )}
           </div>
         </div>
-      </section>
-    </main>
+      </div>
+    </div>
   );
 }
