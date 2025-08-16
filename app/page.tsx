@@ -1,188 +1,72 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+type Theme = 'light' | 'dark';
 
-// --- anti-crash helpers ---
-function asNumber(x: any): number | null {
-  if (x === null || x === undefined) return null;
-  if (typeof x === 'number') return Number.isFinite(x) ? x : null;
-  const s = String(x).trim().replace(',', '.');
-  if (s === '') return null;
-  const n = Number(s);
-  return Number.isFinite(n) ? n : null;
-}
-function euro(x: any): string {
-  const n = asNumber(x);
-  return `${(n ?? 0).toFixed(2)} €`;
-}
-// --------------------------
+export default function SettingsPage() {
+  const [theme, setTheme] = useState<Theme>('light');
+  const [font, setFont] = useState(100); // 90–120 %
 
-type Trade = {
-  id?: number;
-  symbol: string;
-  side: 'long' | 'short';
-  entry_price: number | null;
-  exit_price: number | null;
-  volume?: number | null;
-  pnl_eur: number | null;
-  opened_at: string | null;
-  closed_at: string | null;
-  notes?: string | null;
-};
+  // Charge préférences depuis le navigateur
+  useEffect(() => {
+    const t = (localStorage.getItem('ss_theme') as Theme) || 'light';
+    const f = Number(localStorage.getItem('ss_font') || 100);
+    setTheme(t);
+    setFont(Number.isFinite(f) ? f : 100);
+  }, []);
 
-export default function Page() {
-  // formulaire
-  const [symbol, setSymbol] = useState('');
-  const [side, setSide] = useState<'long' | 'short'>('long');
-  const [entry, setEntry] = useState('');
-  const [exit, setExit] = useState('');
-  const [volume, setVolume] = useState('1');
-  const [notes, setNotes] = useState('');
+  // Applique thème + taille de police
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'dark') root.classList.add('dark');
+    else root.classList.remove('dark');
+    localStorage.setItem('ss_theme', theme);
 
-  // données
-  const [trades, setTrades] = useState<Trade[]>([]);
-  const [status, setStatus] = useState('');
-
-  // stats
-  const pnls = trades.map(t => asNumber(t.pnl_eur)).filter((n): n is number => n !== null);
-  const total = pnls.reduce((a, b) => a + b, 0);
-  const wins = pnls.filter(n => n > 0).length;
-  const winRate = pnls.length ? (wins / pnls.length) * 100 : 0;
-  const avg = pnls.length ? total / pnls.length : 0;
-
-  async function load() {
-    const { data } = await supabase
-      .from('trades')
-      .select('*')
-      .order('opened_at', { ascending: false })
-      .limit(100);
-    setTrades((data as Trade[]) || []);
-  }
-
-  useEffect(() => { load(); }, []);
-
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setStatus('Enregistrement…');
-
-    const eNum = asNumber(entry);
-    const xNum = asNumber(exit);
-    const vNum = asNumber(volume) ?? 1;
-
-    let pnl: number | null = null;
-    if (eNum !== null && xNum !== null) {
-      pnl = side === 'long' ? (xNum - eNum) * vNum : (eNum - xNum) * vNum;
-    }
-
-    const row: Trade = {
-      symbol: symbol.trim() || 'EURUSD',
-      side,
-      entry_price: eNum,
-      exit_price: xNum,
-      volume: vNum,
-      pnl_eur: pnl,
-      opened_at: new Date().toISOString(),
-      closed_at: xNum !== null ? new Date().toISOString() : null,
-      notes: notes || null,
-    };
-
-    const { error } = await supabase.from('trades').insert(row);
-    if (error) setStatus('❌ ' + error.message);
-    else {
-      setStatus('✅ Trade enregistré');
-      setSymbol(''); setEntry(''); setExit(''); setVolume('1'); setNotes('');
-      load();
-    }
-  }
+    root.style.setProperty('--app-font-scale', `${font}%`);
+    localStorage.setItem('ss_font', String(font));
+  }, [theme, font]);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 p-4">
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="card p-4"><div className="text-sm text-neutral-500">Win rate</div><div className="text-2xl font-semibold">{winRate.toFixed(1)}%</div></div>
-        <div className="card p-4"><div className="text-sm text-neutral-500">PnL total</div><div className="text-2xl font-semibold">{euro(total)}</div></div>
-        <div className="card p-4"><div className="text-sm text-neutral-500">PnL moyen / trade</div><div className="text-2xl font-semibold">{euro(avg)}</div></div>
-      </div>
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold">Paramètres</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Formulaire */}
-        <div className="card p-4">
-          <h2 className="font-semibold mb-3">Nouveau trade</h2>
-          <form onSubmit={save} className="space-y-3">
-            <div>
-              <div className="text-sm mb-1">Symbole</div>
-              <input className="input" value={symbol} onChange={e => setSymbol(e.target.value)} placeholder="EURUSD" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <div className="text-sm mb-1">Sens</div>
-                <select className="input" value={side} onChange={e => setSide(e.target.value as 'long' | 'short')}>
-                  <option value="long">long</option>
-                  <option value="short">short</option>
-                </select>
-              </div>
-              <div>
-                <div className="text-sm mb-1">Volume (opt.)</div>
-                <input className="input" value={volume} onChange={e => setVolume(e.target.value)} placeholder="1" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <div className="text-sm mb-1">Entrée (opt.)</div>
-                <input className="input" value={entry} onChange={e => setEntry(e.target.value)} placeholder="1.0850" />
-              </div>
-              <div>
-                <div className="text-sm mb-1">Sortie (opt.)</div>
-                <input className="input" value={exit} onChange={e => setExit(e.target.value)} placeholder="1.0900" />
-              </div>
-            </div>
-            <div>
-              <div className="text-sm mb-1">Notes</div>
-              <textarea className="input min-h-[100px]" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Pourquoi j’ai pris ce trade ?" />
-            </div>
-            <button className="btn">Enregistrer</button>
-            <div className="text-xs text-neutral-500">{status}</div>
-          </form>
+      <div className="card p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="font-medium">Thème</div>
+            <div className="text-sm text-neutral-500">Clair ou sombre</div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              className={`btn ${theme === 'light' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setTheme('light')}
+            >
+              Clair
+            </button>
+            <button
+              className={`btn ${theme === 'dark' ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setTheme('dark')}
+            >
+              Sombre
+            </button>
+          </div>
         </div>
 
-        {/* Liste */}
-        <div className="card p-4">
-          <h2 className="font-semibold mb-3">Derniers trades</h2>
-          <div className="divide-y">
-            {trades.map((t) => {
-              let pnl = t.pnl_eur;
-              if ((pnl === null || pnl === undefined) && t.entry_price != null && t.exit_price != null) {
-                const eNum = asNumber(t.entry_price);
-                const xNum = asNumber(t.exit_price);
-                if (eNum !== null && xNum !== null) {
-                  pnl = t.side === 'long' ? (xNum - eNum) : (eNum - xNum);
-                }
-              }
-              const pnlNum = asNumber(pnl) ?? 0;
-              const green = pnlNum >= 0;
-
-              return (
-                <div key={t.id} className="py-2 flex items-center gap-3">
-                  <span className={`px-2 py-1 rounded-full text-xs ${t.side === 'long' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                    {t.side}
-                  </span>
-                  <div className="w-24 font-medium">{t.symbol}</div>
-                  <div className="text-sm text-neutral-600">E: {t.entry_price ?? '-'} / S: {t.exit_price ?? '-'}</div>
-                  <div className={`ml-auto text-sm px-2 py-1 rounded-full ${green ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                    {euro(pnlNum)}
-                  </div>
-                  <div className="text-xs w-16 text-right">{t.closed_at ? 'Clôturé' : 'Ouvert'}</div>
-                </div>
-              );
-            })}
-            {trades.length === 0 && <div className="text-sm text-neutral-500">Aucun trade pour l’instant.</div>}
+        <div>
+          <div className="font-medium mb-1">Taille de police</div>
+          <div className="text-sm text-neutral-500 mb-2">
+            Ajuste le zoom du texte (90 % à 120 %).
           </div>
+          <input
+            type="range"
+            min={90}
+            max={120}
+            value={font}
+            onChange={(e) => setFont(Number(e.target.value))}
+            className="w-full"
+          />
+          <div className="text-right text-sm text-neutral-500 mt-1">{font}%</div>
         </div>
       </div>
     </div>
