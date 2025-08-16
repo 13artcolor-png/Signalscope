@@ -15,9 +15,11 @@ export default function NewTradePage() {
 
       {/* Menu d’actifs issu de Google Sheets */}
       <AssetSelector
-        value={symbol}
-        onChange={(val) => setSymbol(val as string)}
-        placeholder="Sélectionner un actif"
+  value={symbol}
+  onChange={(val) => setSymbol(val as string)}
+  placeholder="Sélectionner un actif"
+/>
+
         // multiple  // ← décommente si tu veux autoriser multi-sélection
       />
 
