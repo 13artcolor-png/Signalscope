@@ -5,3 +5,21 @@
 .card { @apply rounded-2xl border border-neutral-200 bg-white shadow-sm; }
 .btn { @apply inline-flex items-center justify-center rounded-lg px-3 py-2 font-semibold border bg-black text-white; }
 .btn-outline { @apply inline-flex items-center justify-center rounded-lg px-3 py-2 font-semibold border border-neutral-300 bg-white; }
+:root {
+  --app-font-scale: 100%;
+}
+
+/* taille base pilotée par la variable */
+html {
+  font-size: var(--app-font-scale);
+}
+
+/* exemples d’utilitaires (tu en as peut-être déjà) */
+.btn { @apply px-3 py-1.5 rounded border border-neutral-300 dark:border-neutral-700; }
+.btn-primary { @apply bg-black text-white dark:bg-white dark:text-black; }
+.btn-ghost { @apply bg-transparent hover:bg-neutral-100 dark:hover:bg-neutral-800; }
+
+.input { @apply w-full rounded border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2; }
+.label { @apply block text-xs mb-1 text-neutral-600 dark:text-neutral-400; }
+.card { @apply rounded border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900; }
+
