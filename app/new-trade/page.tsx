@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import AssetSelector from '../components/AssetSelector';
 
+
 export default function NewTradePage() {
   const [symbol, setSymbol] = useState<string>(''); // valeur choisie
   // … autres états de ton formulaire (sens, entrée, SL, TP, etc.)
