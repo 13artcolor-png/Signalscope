@@ -1,6 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+// 🔑 Connexion Supabase avec tes variables d’env.
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 type Asset = {
   Category: string;
@@ -17,6 +24,8 @@ export default function NewTradePage() {
     volume: 1,
     notes: "",
   });
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
 
   // Charger les assets depuis Google Sheets CSV
   useEffect(() => {
@@ -25,8 +34,7 @@ export default function NewTradePage() {
         const res = await fetch(process.env.NEXT_PUBLIC_ASSETS_CSV_URL!);
         const text = await res.text();
 
-        // Transformer CSV → tableau
-        const rows = text.split("\n").slice(1).filter(Boolean); // enlever header + lignes vides
+        const rows = text.split("\n").slice(1).filter(Boolean);
         const parsed = rows.map((row) => {
           const [Category, Symbol] = row.split(",");
           return { Category: Category?.trim(), Symbol: Symbol?.trim() };
@@ -40,22 +48,59 @@ export default function NewTradePage() {
   }, []);
 
   // Mise à jour du formulaire
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
+  ) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Envoi dans Supabase
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("🚀 Nouveau trade:", form);
-    // Ici tu peux envoyer les données à Supabase par ex.
+    setLoading(true);
+    setMessage("");
+
+    try {
+      const { error } = await supabase.from("trades").insert([
+        {
+          symbol: form.symbol,
+          direction: form.direction,
+          entry: form.entry ? parseFloat(form.entry) : null,
+          exit: form.exit ? parseFloat(form.exit) : null,
+          volume: parseFloat(String(form.volume)),
+          notes: form.notes,
+        },
+      ]);
+
+      if (error) throw error;
+
+      setMessage("✅ Trade enregistré avec succès !");
+      setForm({
+        symbol: "",
+        direction: "long",
+        entry: "",
+        exit: "",
+        volume: 1,
+        notes: "",
+      });
+    } catch (err: any) {
+      console.error(err);
+      setMessage("❌ Erreur lors de l'enregistrement du trade.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
       <h2 className="text-2xl font-bold mb-6">Nouveau trade</h2>
-      <form onSubmit={handleSubmit} className="space-y-4 bg-white p-6 rounded-2xl shadow">
-        
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-4 bg-white p-6 rounded-2xl shadow"
+      >
         {/* Sélecteur symbole */}
         <div>
           <label className="block mb-1 font-medium">Symbole</label>
@@ -144,10 +189,17 @@ export default function NewTradePage() {
 
         <button
           type="submit"
-          className="bg-black text-white px-6 py-2 rounded-lg shadow hover:bg-gray-800"
+          disabled={loading}
+          className="bg-black text-white px-6 py-2 rounded-lg shadow hover:bg-gray-800 disabled:opacity-50"
         >
-          Enregistrer
+          {loading ? "Enregistrement..." : "Enregistrer"}
         </button>
+
+        {message && (
+          <p className="mt-3 text-sm font-medium">
+            {message}
+          </p>
+        )}
       </form>
     </div>
   );
