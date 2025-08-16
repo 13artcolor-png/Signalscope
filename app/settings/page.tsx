@@ -6,8 +6,9 @@ type Theme = 'light' | 'dark';
 
 export default function SettingsPage() {
   const [theme, setTheme] = useState<Theme>('light');
-  const [font, setFont] = useState(100);
+  const [font, setFont] = useState(100); // 90–120 %
 
+  // Charger préférences
   useEffect(() => {
     const t = (localStorage.getItem('ss_theme') as Theme) || 'light';
     const f = Number(localStorage.getItem('ss_font') || 100);
@@ -15,6 +16,7 @@ export default function SettingsPage() {
     setFont(Number.isFinite(f) ? f : 100);
   }, []);
 
+  // Appliquer
   useEffect(() => {
     const root = document.documentElement;
     if (theme === 'dark') root.classList.add('dark');
@@ -48,11 +50,12 @@ export default function SettingsPage() {
             >
               Sombre
             </button>
-          </div> 
+          </div>
         </div>
 
         <div>
           <div className="font-medium mb-1">Taille de police</div>
+          <div className="text-sm text-neutral-500 mb-2">Ajuste le zoom (90 % à 120 %).</div>
           <input
             type="range"
             min={90}
