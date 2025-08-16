@@ -8,7 +8,6 @@ export default function SettingsPage() {
   const [theme, setTheme] = useState<Theme>('light');
   const [font, setFont] = useState(100); // 90–120 %
 
-  // Charge préférences depuis le navigateur
   useEffect(() => {
     const t = (localStorage.getItem('ss_theme') as Theme) || 'light';
     const f = Number(localStorage.getItem('ss_font') || 100);
@@ -16,7 +15,6 @@ export default function SettingsPage() {
     setFont(Number.isFinite(f) ? f : 100);
   }, []);
 
-  // Applique thème + taille de police
   useEffect(() => {
     const root = document.documentElement;
     if (theme === 'dark') root.classList.add('dark');
