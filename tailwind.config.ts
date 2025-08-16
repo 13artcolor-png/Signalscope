@@ -5,3 +5,4 @@ const config: Config = {
   plugins: [],
 };
 export default config;
+darkMode: 'class'
