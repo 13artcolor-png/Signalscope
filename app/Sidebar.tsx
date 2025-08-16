@@ -10,12 +10,10 @@ const items = [
   { href: '/calendar', label: 'Calendrier éco' },
   { href: '/retails', label: 'Retails' },
   { href: '/seasonality', label: 'Saisonnalité' },
-
-  // <-- NOUVEAU
-  { href: '/accounts', label: 'Comptes' },
-
+  { href: '/accounts', label: 'Comptes' }, // <-- nouveau
   { href: '/settings', label: 'Paramètres' },
 ];
+
 
 export default function Sidebar() {
   const pathname = usePathname();
