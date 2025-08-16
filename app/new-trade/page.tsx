@@ -11,34 +11,30 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardHeader,
+  CardContent,
+  CardTitle,
+} from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { cn } from "@/lib/utils";
 
 export default function NewTradePage() {
   const [step, setStep] = useState(1);
   const [tradeType, setTradeType] = useState("LONG");
 
   return (
-    <div className="flex justify-center p-6">
-      <Card className="w-full max-w-3xl shadow-lg rounded-2xl">
-        <CardHeader>
-          <CardTitle className="text-xl font-bold">
-            {step === 1 ? "Configuration du Trade" : "Analyse & Détails"}
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-6">
+      <Card className="w-full max-w-3xl bg-white shadow-xl rounded-2xl border border-gray-200">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-2xl font-bold text-gray-800">
+            {step === 1 ? "⚡ Configuration du Trade" : "📊 Analyse & Détails"}
           </CardTitle>
-          <div className="flex items-center justify-between mt-2">
-            <div
-              className={cn(
-                "w-1/2 h-1 rounded-full mr-2",
-                step === 1 ? "bg-blue-500" : "bg-gray-300"
-              )}
-            />
-            <div
-              className={cn(
-                "w-1/2 h-1 rounded-full",
-                step === 2 ? "bg-blue-500" : "bg-gray-300"
-              )}
-            />
+
+          {/* Progression */}
+          <div className="flex items-center justify-between mt-4">
+            <div className={`flex-1 h-2 rounded-full mr-2 ${step >= 1 ? "bg-blue-500" : "bg-gray-200"}`} />
+            <div className={`flex-1 h-2 rounded-full ${step >= 2 ? "bg-purple-500" : "bg-gray-200"}`} />
           </div>
         </CardHeader>
 
@@ -47,29 +43,29 @@ export default function NewTradePage() {
             <form className="space-y-6">
               {/* Type de trade */}
               <div>
-                <Label>Type de trade</Label>
+                <Label className="text-gray-700">Type de trade</Label>
                 <RadioGroup
                   value={tradeType}
                   onValueChange={setTradeType}
-                  className="flex space-x-6 mt-2"
+                  className="flex space-x-6 mt-3"
                 >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="LONG" id="long" />
-                    <Label htmlFor="long">LONG</Label>
+                    <Label htmlFor="long" className="cursor-pointer font-medium">LONG</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="SHORT" id="short" />
-                    <Label htmlFor="short">SHORT</Label>
+                    <Label htmlFor="short" className="cursor-pointer font-medium">SHORT</Label>
                   </div>
                 </RadioGroup>
               </div>
 
               {/* Actif */}
               <div>
-                <Label>Paire de devises</Label>
+                <Label className="text-gray-700">Paire de devises</Label>
                 <Select>
                   <SelectTrigger className="mt-2">
-                    <SelectValue placeholder="Sélectionner un actif" />
+                    <SelectValue placeholder="🔎 Sélectionner un actif" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="eurusd">EUR/USD</SelectItem>
@@ -77,8 +73,8 @@ export default function NewTradePage() {
                     <SelectItem value="dax">DAX</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Source : Google Sheets. Le tableau est rafraîchi automatiquement.
+                <p className="text-xs text-gray-500 mt-1">
+                  Source : Google Sheets (rafraîchi automatiquement).
                 </p>
               </div>
 
@@ -86,23 +82,23 @@ export default function NewTradePage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Prix d’entrée</Label>
-                  <Input placeholder="ex. 1.0750" />
+                  <Input placeholder="ex. 1.0750" className="mt-2" />
                 </div>
                 <div>
                   <Label>Prix de sortie</Label>
-                  <Input placeholder="ex. 1.0800" />
+                  <Input placeholder="ex. 1.0800" className="mt-2" />
                 </div>
               </div>
 
-              {/* Stop / Take Profit */}
+              {/* Stop / TP */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Stop Loss</Label>
-                  <Input placeholder="ex. 1.0710" />
+                  <Input placeholder="ex. 1.0710" className="mt-2" />
                 </div>
                 <div>
                   <Label>Take Profit</Label>
-                  <Input placeholder="ex. 1.0890" />
+                  <Input placeholder="ex. 1.0890" className="mt-2" />
                 </div>
               </div>
 
@@ -140,35 +136,33 @@ export default function NewTradePage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Horaire d’ouverture</Label>
-                  <Input type="datetime-local" />
+                  <Input type="datetime-local" className="mt-2" />
                 </div>
                 <div>
                   <Label>Horaire de clôture</Label>
-                  <Input type="datetime-local" />
+                  <Input type="datetime-local" className="mt-2" />
                 </div>
               </div>
 
               {/* Notes */}
               <div>
                 <Label>Notes</Label>
-                <Input placeholder="Pourquoi j’ai pris ce trade ?" />
+                <Input placeholder="Pourquoi j’ai pris ce trade ?" className="mt-2" />
               </div>
 
-              {/* Bouton suivant */}
+              {/* Bouton */}
               <div className="flex justify-end">
-                <Button onClick={() => setStep(2)}>Suivant</Button>
+                <Button onClick={() => setStep(2)}>Suivant ➡</Button>
               </div>
             </form>
           )}
 
           {step === 2 && (
-            <div className="space-y-4">
-              <p className="text-gray-600">👉 Ici tu pourras mettre l’analyse et les détails du trade.</p>
+            <div className="space-y-6">
+              <p className="text-gray-600">📋 Ici tu pourras écrire l’analyse et les détails du trade.</p>
               <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setStep(1)}>
-                  Retour
-                </Button>
-                <Button>Enregistrer</Button>
+                <Button variant="outline" onClick={() => setStep(1)}>⬅ Retour</Button>
+                <Button>✅ Enregistrer</Button>
               </div>
             </div>
           )}
