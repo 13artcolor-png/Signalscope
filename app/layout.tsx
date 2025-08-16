@@ -19,3 +19,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   );
 }
+
+
+// app/layout.tsx
+import "./globals.css";
+import { syncAssets } from "@/lib/syncAssets";
+
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Synchronisation des actifs au démarrage
+  await syncAssets();
+
+  return (
+    <html lang="fr">
+      <body>{children}</body>
+    </html>
+  );
+}
