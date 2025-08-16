@@ -1,206 +1,127 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-// 🔑 Connexion Supabase avec tes variables d’env.
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-type Asset = {
-  Category: string;
-  Symbol: string;
-};
-
 export default function NewTradePage() {
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [form, setForm] = useState({
-    symbol: "",
-    direction: "long",
-    entry: "",
-    exit: "",
-    volume: 1,
-    notes: "",
-  });
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+  const [assets, setAssets] = useState<any[]>([]);
+  const [selectedAssetId, setSelectedAssetId] = useState("");
+  const [side, setSide] = useState("long");
+  const [entryPrice, setEntryPrice] = useState("");
+  const [exitPrice, setExitPrice] = useState("");
+  const [notes, setNotes] = useState("");
 
-  // Charger les assets depuis Google Sheets CSV
+  // 🔹 Charger la liste des assets depuis Supabase
   useEffect(() => {
-    async function fetchAssets() {
-      try {
-        const res = await fetch(process.env.NEXT_PUBLIC_ASSETS_CSV_URL!);
-        const text = await res.text();
+    const fetchAssets = async () => {
+      const { data, error } = await supabase
+        .from("assets")
+        .select("id, category, symbol")
+        .order("category", { ascending: true });
 
-        const rows = text.split("\n").slice(1).filter(Boolean);
-        const parsed = rows.map((row) => {
-          const [Category, Symbol] = row.split(",");
-          return { Category: Category?.trim(), Symbol: Symbol?.trim() };
-        });
-        setAssets(parsed);
-      } catch (err) {
-        console.error("Erreur chargement assets:", err);
-      }
-    }
+      if (error) console.error("Erreur chargement assets:", error);
+      else setAssets(data || []);
+    };
+
     fetchAssets();
   }, []);
 
-  // Mise à jour du formulaire
-  const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >
-  ) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-  };
+  // 🔹 Sauvegarde du trade
+  const handleSaveTrade = async () => {
+    if (!selectedAssetId || !entryPrice || !exitPrice) {
+      alert("Merci de remplir tous les champs obligatoires");
+      return;
+    }
 
-  // Envoi dans Supabase
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setMessage("");
+    const { error } = await supabase.from("trades").insert([
+      {
+        asset_id: selectedAssetId,
+        side,
+        entry_price: parseFloat(entryPrice),
+        exit_price: parseFloat(exitPrice),
+        notes,
+      },
+    ]);
 
-    try {
-      const { error } = await supabase.from("trades").insert([
-        {
-          symbol: form.symbol,
-          direction: form.direction,
-          entry: form.entry ? parseFloat(form.entry) : null,
-          exit: form.exit ? parseFloat(form.exit) : null,
-          volume: parseFloat(String(form.volume)),
-          notes: form.notes,
-        },
-      ]);
-
-      if (error) throw error;
-
-      setMessage("✅ Trade enregistré avec succès !");
-      setForm({
-        symbol: "",
-        direction: "long",
-        entry: "",
-        exit: "",
-        volume: 1,
-        notes: "",
-      });
-    } catch (err: any) {
-      console.error(err);
-      setMessage("❌ Erreur lors de l'enregistrement du trade.");
-    } finally {
-      setLoading(false);
+    if (error) {
+      console.error("Erreur sauvegarde trade:", error);
+      alert("Erreur enregistrement trade ❌");
+    } else {
+      alert("Trade enregistré ✅");
+      setSelectedAssetId("");
+      setEntryPrice("");
+      setExitPrice("");
+      setNotes("");
     }
   };
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
-      <h2 className="text-2xl font-bold mb-6">Nouveau trade</h2>
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-4 bg-white p-6 rounded-2xl shadow"
+    <div className="p-6 max-w-xl mx-auto">
+      <h1 className="text-xl font-bold mb-4">➕ Nouveau trade</h1>
+
+      {/* Sélecteur d’actifs */}
+      <label className="block mb-2">Symbole</label>
+      <select
+        value={selectedAssetId}
+        onChange={(e) => setSelectedAssetId(e.target.value)}
+        className="w-full p-2 border rounded mb-4"
       >
-        {/* Sélecteur symbole */}
-        <div>
-          <label className="block mb-1 font-medium">Symbole</label>
-          <select
-            name="symbol"
-            value={form.symbol}
-            onChange={handleChange}
-            className="w-full border rounded-lg p-2"
-            required
-          >
-            <option value="">-- Choisir un actif --</option>
-            {assets.map((a, i) => (
-              <option key={i} value={a.Symbol}>
-                {a.Category} — {a.Symbol}
-              </option>
-            ))}
-          </select>
-        </div>
+        <option value="">-- Choisir un actif --</option>
+        {assets.map((a) => (
+          <option key={a.id} value={a.id}>
+            {a.category} - {a.symbol}
+          </option>
+        ))}
+      </select>
 
-        {/* Direction */}
-        <div>
-          <label className="block mb-1 font-medium">Sens</label>
-          <select
-            name="direction"
-            value={form.direction}
-            onChange={handleChange}
-            className="w-full border rounded-lg p-2"
-          >
-            <option value="long">Long</option>
-            <option value="short">Short</option>
-          </select>
-        </div>
+      {/* Sens du trade */}
+      <label className="block mb-2">Sens</label>
+      <select
+        value={side}
+        onChange={(e) => setSide(e.target.value)}
+        className="w-full p-2 border rounded mb-4"
+      >
+        <option value="long">Long</option>
+        <option value="short">Short</option>
+      </select>
 
-        {/* Entrée */}
-        <div>
-          <label className="block mb-1 font-medium">Entrée (opt.)</label>
-          <input
-            type="number"
-            name="entry"
-            value={form.entry}
-            onChange={handleChange}
-            className="w-full border rounded-lg p-2"
-            placeholder="1.0850"
-          />
-        </div>
+      {/* Prix d’entrée */}
+      <label className="block mb-2">Entrée</label>
+      <input
+        type="number"
+        value={entryPrice}
+        onChange={(e) => setEntryPrice(e.target.value)}
+        className="w-full p-2 border rounded mb-4"
+      />
 
-        {/* Sortie */}
-        <div>
-          <label className="block mb-1 font-medium">Sortie (opt.)</label>
-          <input
-            type="number"
-            name="exit"
-            value={form.exit}
-            onChange={handleChange}
-            className="w-full border rounded-lg p-2"
-            placeholder="1.0950"
-          />
-        </div>
+      {/* Prix de sortie */}
+      <label className="block mb-2">Sortie</label>
+      <input
+        type="number"
+        value={exitPrice}
+        onChange={(e) => setExitPrice(e.target.value)}
+        className="w-full p-2 border rounded mb-4"
+      />
 
-        {/* Volume */}
-        <div>
-          <label className="block mb-1 font-medium">Volume</label>
-          <input
-            type="number"
-            name="volume"
-            value={form.volume}
-            onChange={handleChange}
-            className="w-full border rounded-lg p-2"
-            min={0.01}
-            step={0.01}
-          />
-        </div>
+      {/* Notes */}
+      <label className="block mb-2">Notes</label>
+      <textarea
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        className="w-full p-2 border rounded mb-4"
+      />
 
-        {/* Notes */}
-        <div>
-          <label className="block mb-1 font-medium">Notes</label>
-          <textarea
-            name="notes"
-            value={form.notes}
-            onChange={handleChange}
-            className="w-full border rounded-lg p-2"
-            rows={3}
-            placeholder="Pourquoi j’ai pris ce trade ?"
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="bg-black text-white px-6 py-2 rounded-lg shadow hover:bg-gray-800 disabled:opacity-50"
-        >
-          {loading ? "Enregistrement..." : "Enregistrer"}
-        </button>
-
-        {message && (
-          <p className="mt-3 text-sm font-medium">
-            {message}
-          </p>
-        )}
-      </form>
+      <button
+        onClick={handleSaveTrade}
+        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+      >
+        Enregistrer
+      </button>
     </div>
   );
 }
