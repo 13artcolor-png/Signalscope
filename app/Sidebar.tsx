@@ -10,7 +10,7 @@ const items = [
   { href: '/calendar', label: 'Calendrier éco' },
   { href: '/retails', label: 'Retails' },
   { href: '/seasonality', label: 'Saisonnalité' },
-  { href: '/accounts', label: 'Comptes' }, // <-- nouveau
+  { href: '/accounts', label: 'Comptes' },
   { href: '/settings', label: 'Paramètres' },
 ];
 
