@@ -89,3 +89,17 @@ export default function AccountsPage() {
     </div>
   );
 }
+export default function AccountsPage() {
+  return (
+    <div className="mx-auto max-w-5xl px-4 py-6 md:ml-64">
+      <h1 className="mb-4 text-2xl font-semibold">Comptes</h1>
+      <p className="text-sm text-neutral-600">
+        Ici, tu pourras rattacher tes comptes (brokers, cTrader, etc.), définir les alias et la devise.
+      </p>
+      <div className="mt-4 rounded-lg border bg-white p-4 text-sm text-neutral-700">
+        (Placeholder) — On ajoutera la vraie gestion des comptes après validation du design.
+      </div>
+    </div>
+  );
+}
+
