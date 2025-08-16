@@ -1,146 +1,138 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-import { syncAssets } from "@/lib/syncAssets"; // ⚡ On importe ta fonction existante
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function NewTradePage() {
-  const [assets, setAssets] = useState<{ symbol: string; category: string }[]>([]);
-  const [selectedAsset, setSelectedAsset] = useState("");
   const [side, setSide] = useState("long");
-  const [entry, setEntry] = useState("");
-  const [exit, setExit] = useState("");
-  const [loadingAssets, setLoadingAssets] = useState(false);
-
-  // Charger la liste des actifs depuis Supabase
-  async function fetchAssets() {
-    setLoadingAssets(true);
-    const { data, error } = await supabase
-      .from("assets")
-      .select("symbol, category")
-      .eq("is_active", true)
-      .order("category", { ascending: true });
-
-    if (error) {
-      console.error("Erreur fetch assets:", error);
-    } else {
-      setAssets(data || []);
-    }
-    setLoadingAssets(false);
-  }
-
-  useEffect(() => {
-    fetchAssets();
-  }, []);
-
-  // Sauvegarde du trade
-  async function handleSave() {
-    if (!selectedAsset || !entry) {
-      alert("⚠️ Choisis un actif et un prix d’entrée !");
-      return;
-    }
-
-    const { error } = await supabase.from("trades").insert([
-      {
-        side,
-        entry_price: parseFloat(entry),
-        exit_price: exit ? parseFloat(exit) : null,
-        symbol: selectedAsset,
-        status: "open",
-      },
-    ]);
-
-    if (error) {
-      console.error("Erreur insertion trade:", error);
-      alert("❌ Erreur sauvegarde");
-    } else {
-      alert("✅ Trade enregistré !");
-      setEntry("");
-      setExit("");
-    }
-  }
-
-  // Forcer la synchro des actifs depuis Google Sheets
-  async function handleSyncAssets() {
-    setLoadingAssets(true);
-    const res = await syncAssets();
-    if (res.success) {
-      alert(`✅ ${res.count} actifs synchronisés !`);
-      await fetchAssets(); // recharger depuis Supabase
-    } else {
-      alert("❌ Erreur synchro (voir console)");
-    }
-    setLoadingAssets(false);
-  }
 
   return (
-    <div className="p-6 max-w-lg mx-auto">
-      <h1 className="text-xl font-bold mb-4">➕ Nouveau trade</h1>
+    <div className="min-h-screen bg-neutral-100 p-6 flex items-center justify-center">
+      <Card className="w-full max-w-3xl shadow-lg rounded-2xl">
+        <CardContent className="p-8">
+          {/* Stepper */}
+          <div className="flex items-center justify-center mb-8">
+            <div className="flex items-center gap-4 text-sm text-neutral-500">
+              <div className="flex items-center gap-2 font-medium text-blue-600">
+                <div className="w-6 h-6 flex items-center justify-center rounded-full bg-blue-600 text-white text-xs">
+                  1
+                </div>
+                Configuration du trade
+              </div>
+              <div className="w-10 h-[1px] bg-neutral-300"></div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 flex items-center justify-center rounded-full bg-neutral-300 text-neutral-600 text-xs">
+                  2
+                </div>
+                Analyse & Détails
+              </div>
+            </div>
+          </div>
 
-      {/* Bouton synchro */}
-      <button
-        onClick={handleSyncAssets}
-        disabled={loadingAssets}
-        className="mb-4 px-4 py-2 bg-blue-600 text-white rounded-lg"
-      >
-        {loadingAssets ? "⏳ Mise à jour..." : "🔄 Mettre à jour la liste d’actifs"}
-      </button>
+          {/* Type de trade */}
+          <div className="flex justify-center gap-4 mb-6">
+            <Button
+              variant={side === "long" ? "default" : "outline"}
+              className={`px-8 py-4 rounded-xl text-lg ${
+                side === "long" ? "bg-green-500 hover:bg-green-600" : ""
+              }`}
+              onClick={() => setSide("long")}
+            >
+              LONG
+            </Button>
+            <Button
+              variant={side === "short" ? "default" : "outline"}
+              className={`px-8 py-4 rounded-xl text-lg ${
+                side === "short" ? "bg-red-500 hover:bg-red-600" : ""
+              }`}
+              onClick={() => setSide("short")}
+            >
+              SHORT
+            </Button>
+          </div>
 
-      {/* Menu déroulant pour l’actif */}
-      <label className="block mb-2 font-medium">Symbole</label>
-      <select
-        value={selectedAsset}
-        onChange={(e) => setSelectedAsset(e.target.value)}
-        className="w-full p-2 border rounded-lg mb-4"
-      >
-        <option value="">-- Choisir un actif --</option>
-        {assets.map((a, i) => (
-          <option key={i} value={a.symbol}>
-            {a.category} - {a.symbol}
-          </option>
-        ))}
-      </select>
+          {/* Formulaire */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <Label>Paire de devises</Label>
+              <Select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionner un actif" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="eurusd">EURUSD</SelectItem>
+                  <SelectItem value="gbpusd">GBPUSD</SelectItem>
+                  <SelectItem value="gold">GOLD</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Prix d’entrée</Label>
+              <Input type="number" placeholder="1.0750" />
+            </div>
+            <div>
+              <Label>Stop Loss</Label>
+              <Input type="number" placeholder="1.0700" />
+            </div>
+            <div>
+              <Label>Take Profit</Label>
+              <Input type="number" placeholder="1.0890" />
+            </div>
+            <div>
+              <Label>Pourcentage de risque</Label>
+              <Select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Ex: 1%" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0.5">0.5%</SelectItem>
+                  <SelectItem value="1">1%</SelectItem>
+                  <SelectItem value="2">2%</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Unité de temps</Label>
+              <Select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Ex: H1" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="m15">M15</SelectItem>
+                  <SelectItem value="h1">H1</SelectItem>
+                  <SelectItem value="h4">H4</SelectItem>
+                  <SelectItem value="d1">D1</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Ratio Risque / Rendement</Label>
+              <Input type="number" placeholder="2.0" />
+            </div>
+            <div>
+              <Label>Taille du lot</Label>
+              <Input type="number" placeholder="0.01" />
+            </div>
+          </div>
 
-      {/* Choix du sens */}
-      <label className="block mb-2 font-medium">Sens</label>
-      <select
-        value={side}
-        onChange={(e) => setSide(e.target.value)}
-        className="w-full p-2 border rounded-lg mb-4"
-      >
-        <option value="long">Long</option>
-        <option value="short">Short</option>
-      </select>
-
-      {/* Prix d’entrée */}
-      <label className="block mb-2 font-medium">Entrée</label>
-      <input
-        type="number"
-        value={entry}
-        onChange={(e) => setEntry(e.target.value)}
-        className="w-full p-2 border rounded-lg mb-4"
-      />
-
-      {/* Prix de sortie (optionnel) */}
-      <label className="block mb-2 font-medium">Sortie (optionnel)</label>
-      <input
-        type="number"
-        value={exit}
-        onChange={(e) => setExit(e.target.value)}
-        className="w-full p-2 border rounded-lg mb-4"
-      />
-
-      <button
-        onClick={handleSave}
-        className="px-4 py-2 bg-black text-white rounded-lg"
-      >
-        Enregistrer
-      </button>
+          {/* Boutons */}
+          <div className="flex justify-end mt-8">
+            <Button className="px-6 py-3 rounded-xl bg-gradient-to-r from-pink-500 to-purple-500 text-white">
+              Suivant →
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
