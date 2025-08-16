@@ -5,4 +5,7 @@ const config: Config = {
   plugins: [],
 };
 export default config;
-darkMode: 'class'
+module.exports = {
+  darkMode: 'class',
+  // ...
+}
