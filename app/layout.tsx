@@ -1,13 +1,18 @@
-import './globals.css';
-import type { Metadata } from 'next';
-import Sidebar from './Sidebar';
+// app/layout.tsx
+import './globals.css'
+import type { Metadata } from 'next'
+import Sidebar from './Sidebar'
+import { syncAssets } from '@/lib/syncAssets'
 
 export const metadata: Metadata = {
-  title: 'SignalScope — Journal de trading',
+  title: 'SignalScope – Journal de trading',
   description: 'MVP Journal de trading (Next.js + Supabase)',
-};
+}
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Synchronisation des actifs au démarrage
+  await syncAssets()
+
   return (
     <html lang="fr">
       <body className="bg-neutral-50 text-neutral-900">
@@ -17,21 +22,5 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </div>
       </body>
     </html>
-  );
-}
-
-
-// app/layout.tsx
-import "./globals.css";
-import { syncAssets } from "@/lib/syncAssets";
-
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  // Synchronisation des actifs au démarrage
-  await syncAssets();
-
-  return (
-    <html lang="fr">
-      <body>{children}</body>
-    </html>
-  );
+  )
 }
