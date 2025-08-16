@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { syncAssets } from "@/lib/syncAssets"; // ⚡ On importe ta fonction existante
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,23 +15,26 @@ export default function NewTradePage() {
   const [side, setSide] = useState("long");
   const [entry, setEntry] = useState("");
   const [exit, setExit] = useState("");
+  const [loadingAssets, setLoadingAssets] = useState(false);
 
   // Charger la liste des actifs depuis Supabase
-  useEffect(() => {
-    async function fetchAssets() {
-      const { data, error } = await supabase
-        .from("assets")
-        .select("symbol, category")
-        .eq("is_active", true)
-        .order("category", { ascending: true });
+  async function fetchAssets() {
+    setLoadingAssets(true);
+    const { data, error } = await supabase
+      .from("assets")
+      .select("symbol, category")
+      .eq("is_active", true)
+      .order("category", { ascending: true });
 
-      if (error) {
-        console.error("Erreur fetch assets:", error);
-      } else {
-        setAssets(data || []);
-      }
+    if (error) {
+      console.error("Erreur fetch assets:", error);
+    } else {
+      setAssets(data || []);
     }
+    setLoadingAssets(false);
+  }
 
+  useEffect(() => {
     fetchAssets();
   }, []);
 
@@ -46,7 +50,7 @@ export default function NewTradePage() {
         side,
         entry_price: parseFloat(entry),
         exit_price: exit ? parseFloat(exit) : null,
-        symbol: selectedAsset, // ⚡ directement depuis le menu déroulant
+        symbol: selectedAsset,
         status: "open",
       },
     ]);
@@ -61,9 +65,31 @@ export default function NewTradePage() {
     }
   }
 
+  // Forcer la synchro des actifs depuis Google Sheets
+  async function handleSyncAssets() {
+    setLoadingAssets(true);
+    const res = await syncAssets();
+    if (res.success) {
+      alert(`✅ ${res.count} actifs synchronisés !`);
+      await fetchAssets(); // recharger depuis Supabase
+    } else {
+      alert("❌ Erreur synchro (voir console)");
+    }
+    setLoadingAssets(false);
+  }
+
   return (
     <div className="p-6 max-w-lg mx-auto">
       <h1 className="text-xl font-bold mb-4">➕ Nouveau trade</h1>
+
+      {/* Bouton synchro */}
+      <button
+        onClick={handleSyncAssets}
+        disabled={loadingAssets}
+        className="mb-4 px-4 py-2 bg-blue-600 text-white rounded-lg"
+      >
+        {loadingAssets ? "⏳ Mise à jour..." : "🔄 Mettre à jour la liste d’actifs"}
+      </button>
 
       {/* Menu déroulant pour l’actif */}
       <label className="block mb-2 font-medium">Symbole</label>
