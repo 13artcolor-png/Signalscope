@@ -1,105 +1,87 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import Link from 'next/link';
+import { createClient } from '@/lib/supabaseClient';
 
 type Account = {
   id: string;
-  broker: string;
-  name: string;
-  currency: string;
+  name: string | null;
+  broker: string | null;
+  currency: string | null;
   balance: number | null;
-  created_at: string;
+  created_at: string | null;
 };
 
 export default function AccountsPage() {
-  const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ broker: '', name: '', currency: 'EUR', balance: '' as string | number });
+  const [rows, setRows] = useState<Account[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
-  async function load() {
-    setLoading(true);
-    const { data } = await supabase.from('accounts').select('*').order('created_at', { ascending: false });
-    if (data) setAccounts(data as Account[]);
-    setLoading(false);
-  }
-  useEffect(() => { load(); }, []);
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const payload = {
-      broker: form.broker.trim(),
-      name: form.name.trim(),
-      currency: form.currency.trim(),
-      balance: form.balance === '' ? null : Number(String(form.balance).replace(',', '.')),
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase.from('accounts').select('*').order('created_at', { ascending: false });
+        if (error) throw error;
+        setRows(data || []);
+      } catch (e: any) {
+        // Sécurise même si la table n’existe pas encore
+        setError('Aucun compte trouvé (ou table "accounts" absente pour le moment).');
+      } finally {
+        setLoading(false);
+      }
     };
-    if (!payload.broker || !payload.name) return;
-    const { error } = await supabase.from('accounts').insert(payload);
-    if (!error) { setForm({ broker: '', name: '', currency: 'EUR', balance: '' }); load(); }
-  }
+    run();
+  }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <h1 className="text-2xl font-bold">Comptes</h1>
 
-      <form onSubmit={onSubmit} className="card p-4 grid grid-cols-1 md:grid-cols-5 gap-3">
-        <div>
-          <label className="label">Broker</label>
-          <input className="input" value={form.broker} onChange={(e) => setForm({ ...form, broker: e.target.value })} required />
-        </div>
-        <div>
-          <label className="label">Nom du compte</label>
-          <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-        </div>
-        <div>
-          <label className="label">Devise</label>
-          <select className="input" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>
-            <option>EUR</option><option>USD</option><option>GBP</option>
-          </select>
-        </div>
-        <div>
-          <label className="label">Solde (opt.)</label>
-          <input className="input" value={form.balance} onChange={(e) => setForm({ ...form, balance: e.target.value })} inputMode="decimal" />
-        </div>
-        <div className="flex items-end">
-          <button className="btn-primary w-full" type="submit">Ajouter</button>
-        </div>
-      </form>
-
-      <div className="card p-0">
-        <div className="px-4 py-2 border-b text-xs uppercase text-neutral-500">Tes comptes</div>
-        {loading ? (
-          <div className="p-4 text-sm text-neutral-500">Chargement…</div>
-        ) : accounts.length === 0 ? (
-          <div className="p-4 text-sm text-neutral-500">Aucun compte pour l’instant.</div>
-        ) : (
-          <div className="divide-y">
-            {accounts.map(a => (
-              <div key={a.id} className="px-4 py-3 flex flex-wrap gap-4 text-sm">
-                <div className="font-medium">{a.name}</div>
-                <div className="text-neutral-500">({a.broker})</div>
-                <div className="ml-auto">
-                  {a.balance == null ? '—' : Intl.NumberFormat('fr-FR', { style: 'currency', currency: a.currency || 'EUR' }).format(a.balance)}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-export default function AccountsPage() {
-  return (
-    <div className="mx-auto max-w-5xl px-4 py-6 md:ml-64">
-      <h1 className="mb-4 text-2xl font-semibold">Comptes</h1>
       <p className="text-sm text-neutral-600">
-        Ici, tu pourras rattacher tes comptes (brokers, cTrader, etc.), définir les alias et la devise.
+        Liste de tes comptes de trading (par broker). Tu pourras les connecter plus tard à TradingView / cTrader / MT5.
       </p>
-      <div className="mt-4 rounded-lg border bg-white p-4 text-sm text-neutral-700">
-        (Placeholder) — On ajoutera la vraie gestion des comptes après validation du design.
+
+      {loading ? (
+        <div className="text-sm text-neutral-500">Chargement…</div>
+      ) : rows.length === 0 ? (
+        <div className="card p-4">
+          <div className="text-sm">{error ?? 'Aucun compte pour le moment.'}</div>
+          <div className="text-xs text-neutral-500 mt-1">
+            (Astuce : crée la table <code>accounts</code> dans Supabase — instructions plus bas.)
+          </div>
+        </div>
+      ) : (
+        <div className="card p-0 overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="text-left border-b">
+                <th className="p-3">Nom</th>
+                <th className="p-3">Broker</th>
+                <th className="p-3">Devise</th>
+                <th className="p-3">Solde</th>
+                <th className="p-3">Créé le</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((a) => (
+                <tr key={a.id} className="border-b last:border-0">
+                  <td className="p-3">{a.name ?? '—'}</td>
+                  <td className="p-3">{a.broker ?? '—'}</td>
+                  <td className="p-3">{a.currency ?? '—'}</td>
+                  <td className="p-3">{a.balance ?? 0}</td>
+                  <td className="p-3">{a.created_at ? new Date(a.created_at).toLocaleString() : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="text-xs text-neutral-500">
+        Besoin d’aide ? Va dans <Link href="/settings" className="underline">Paramètres</Link> pour les intégrations.
       </div>
     </div>
   );
 }
-
