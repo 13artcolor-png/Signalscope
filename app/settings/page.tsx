@@ -48,7 +48,7 @@ export default function SettingsPage() {
             >
               Sombre
             </button>
-          </div>
+          </div> 
         </div>
 
         <div>
